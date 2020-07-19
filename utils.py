@@ -53,7 +53,7 @@ class MultiHeadAttentionBlock(torch.nn.Module):
 class Value(torch.nn.Module):
     def __init__(self, dim_input, dim_val):
         super(Value, self).__init__()
-        self.fc1 = nn.Linear(dim_input, dim_val, bias = False)
+        self.fc1 = nn.Linear(dim_input, dim_val, bias = False).cuda()
     
     def forward(self, x):
         return self.fc1(x)
@@ -61,7 +61,7 @@ class Value(torch.nn.Module):
 class Key(torch.nn.Module):
     def __init__(self, dim_input, dim_attn):
         super(Key, self).__init__()
-        self.fc1 = nn.Linear(dim_input, dim_attn, bias = False)
+        self.fc1 = nn.Linear(dim_input, dim_attn, bias = False).cuda()
     
     def forward(self, x):
         return self.fc1(x)
@@ -69,7 +69,7 @@ class Key(torch.nn.Module):
 class Query(torch.nn.Module):
     def __init__(self, dim_input, dim_attn):
         super(Query, self).__init__()
-        self.fc1 = nn.Linear(dim_input, dim_attn, bias = False)
+        self.fc1 = nn.Linear(dim_input, dim_attn, bias = False).cuda()
     
     def forward(self, x):
         return self.fc1(x)
@@ -77,23 +77,3 @@ class Query(torch.nn.Module):
 def QuantileLoss(net_out, Y, q):
     return (q * F.relu(net_out - Y)) + ((1 - q) * F.relu(Y - net_out))
 
-# https://pytorch.org/tutorials/beginner/transformer_tutorial.html
-class PositionalEncoding(nn.Module):
-    def __init__(self, d_model, dropout=0.1, max_len= 5000):
-        super(PositionalEncoding, self).__init__()
-
-        pe = torch.zeros(max_len, d_model)
-        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
-        
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
-        
-        pe = pe.unsqueeze(0).transpose(0, 1)
-        
-        self.register_buffer('pe', pe)
-
-    def forward(self, x):
-        x = x + self.pe[:x.size(1), :]. squeeze(1)
-        return x        
