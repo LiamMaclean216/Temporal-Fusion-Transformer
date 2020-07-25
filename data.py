@@ -12,9 +12,17 @@ import plotly.graph_objects as go
 header = {'open_time' : 1, 'open' : 2, 'high' : 3, 'low' : 4, 'close' : 5}#, 'volume' : 6}
 
 #load_data from file
-def load_data(year, symbol):
-    data_ = pd.read_csv("{}_{}.csv".format(year, symbol), header = None)[list(header.values())]
-
+def load_data(year, symbol, interval = "1m"):
+    if(type(year) == type([])):
+        frames = []
+        for y in year:
+            frames.append(pd.read_csv("data_{}/{}_{}.csv".format(interval, y, symbol), header = None)[list(header.values())])
+        data_ = pd.concat(frames)
+        #del frames                  
+    else:
+        print("sdf")
+        data_ = pd.read_csv("data/{}_{}.csv".format(year, symbol), header = None)[list(header.values())]
+    
     #convert timestamp into month and day numbers
     data_['hour'] = pd.to_datetime(data_[1], unit='ms').apply(lambda x: x.hour)    
     data_['day'] = pd.to_datetime(data_[1], unit='ms').apply(lambda x: x.day - 1)
@@ -25,22 +33,17 @@ def load_data(year, symbol):
 def get_batches(data_, in_seq_len, out_seq_len, batch_size, epochs = 1, random_index = True, gpu = True, normalise = True, increment = 1):
     data = data_[0].copy()
     symbol = data_[1]
-    #norm = {'BTCUSDT' : (0 ,100000)}
-    #normalise and differentiate
-    #if normalise:
-    #    data[[2,3,4,5]] = data[[2,3,4,5]].diff()#.diff().diff()
-    #    data = data.drop(data.index[0])
-    #    
-    #    data[[2,3,4,5]] = (data[[2,3,4,5]] - data[[2,3,4,5]].mean()) / data[[2,3,4,5]].std()
-    #    #data[[2,3,4,5]] = (data[[2,3,4,5]] - norm[symbol][0]) / norm[symbol][1]
-        
+    
+    if normalise:
+        data[[2,3,4,5]] = (data[[2,3,4,5]] - data[[2,3,4,5]].stack().mean()) / data[[2,3,4,5]].stack().std()
+    #data = data.drop(data.index[0])    
     
     in_seq_continuous = []
     in_seq_discrete = []
     out_seq = []
     target_seq = []
     
-    b = 0
+    ba = 0
     idx = 0
     
     while True:
@@ -50,32 +53,30 @@ def get_batches(data_, in_seq_len, out_seq_len, batch_size, epochs = 1, random_i
             i = idx
             idx += increment
         
-        batch_data = data.iloc[i:i + in_seq_len + out_seq_len]
+        batch_data = data.iloc[i:i + in_seq_len + out_seq_len].copy()
         
         #normalise batches
-        #if normalise:
-            #batch_data[[2,3,4,5]].apply(np.log)
-        #    mi = batch_data[[2,3,4,5]].min()
-        #    ma = batch_data[[2,3,4,5]].max()
-        #    batch_data[[2,3,4,5]] = (batch_data[[2,3,4,5]] - mi)/(ma - mi)
-        
         if normalise:
-            batch_data[[2,3,4,5]] = (batch_data[[2,3,4,5]] - batch_data[[2,3,4,5]].mean())/batch_data[[2,3,4,5]].std()
-        if(batch_data.isnull().values.any()):
-            continue   
+            a = batch_data.iloc[0:in_seq_len, [1 ,2, 3, 4]]
+            #a = (a - a.iloc[-1]) / a.stack().std()
+            std = a.stack().std()
+            a = (a - a.iloc[-1]) / std
+            batch_data.iloc[0:in_seq_len, [1 ,2, 3, 4]] = a
+            
+            b = batch_data.iloc[in_seq_len:in_seq_len + out_seq_len,[header['close']-1]]
+            b = (b - b.iloc[0]) / std #a.iloc([-out_seq_len:]).std()
+            batch_data.iloc[in_seq_len:in_seq_len + out_seq_len,[header['close']-1]] = b
+        
+
+            
             
         in_seq_continuous.append(batch_data.iloc[0:in_seq_len, [1 ,2, 3, 4]].values)
         in_seq_discrete.append(batch_data.iloc[0:in_seq_len, [5, 6, 7]].values)
         out_seq.append(batch_data.iloc[in_seq_len:in_seq_len + out_seq_len, [5, 6, 7]].values)
         target_seq.append(batch_data.iloc[in_seq_len:in_seq_len + out_seq_len,[header['close']-1]].values)
         
-        #in_seq_continuous.append(data.iloc[i:i + in_seq_len,[1 ,2, 3, 4]].values)
-        #in_seq_discrete.append(data.iloc[i:i + in_seq_len,[5, 6, 7]].values)
-        #out_seq.append(data.iloc[i+in_seq_len:i+in_seq_len+out_seq_len,[5, 6, 7]].values)
-        #target_seq.append(data.iloc[i+in_seq_len:i+in_seq_len+out_seq_len,[header['close']-1]].values)
-        
-        b += 1
-        if(b >= batch_size):
+        ba += 1
+        if(ba >= batch_size):
             #[(batch_size, in_seq_len, 4), (batch_size, in_seq_len, 3), (batch_size, out_seq_len, 3), (batch_size, out_seq_len, 1)]
             if(not gpu):
                 dtype = torch.FloatTensor
@@ -91,7 +92,7 @@ def get_batches(data_, in_seq_len, out_seq_len, batch_size, epochs = 1, random_i
             in_seq_discrete = []
             out_seq = []
             target_seq = []
-            b = 0
+            ba = 0
             
 def one_hot(x, dims, gpu = True):
     out = []

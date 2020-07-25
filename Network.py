@@ -141,7 +141,8 @@ class TFN(torch.nn.Module):
         
         self.attention = []
         for i in range(n_attention_layers):
-            self.attention.append(MultiHeadAttentionBlock(dim_model, dim_model, n_heads = n_heads).cuda())
+            self.attention.append([MultiHeadAttentionBlock(dim_model, dim_model, n_heads = n_heads).cuda(),
+                                   nn.LayerNorm(dim_model).cuda()])
             
         self.norm2 = nn.LayerNorm(dim_model)
         
@@ -176,11 +177,9 @@ class TFN(torch.nn.Module):
         x = self.static_enrich_grn(x)
         
         #attention layer
-        #a = self.attention(x)
-        
-        a = self.attention[0](x)
+        a = self.attention[0][1](self.attention[0][0](x) + x) 
         for at in self.attention[1:]:
-            a = at(a)
+            a = at[1](at[0](a) + a)
         
         x_future = self.norm2(a[:, x_past.shape[1]:] + x_future)
         
