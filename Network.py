@@ -46,6 +46,7 @@ class VSN(torch.nn.Module):
         super(VSN, self).__init__()
         n_var_total = n_var_cont + len(n_var_disc)
         
+        
         #Linear transformation of inputs into dmodel vector
         self.linearise = []
         for i in range(n_var_cont):
@@ -82,7 +83,6 @@ class VSN(torch.nn.Module):
         elif(len(self.entity_embed) != 0 and len(self.linearise) == 0):
             vectorised_vars = torch.stack(embedded, dim = -2)#(batch_size, seq_len, n_var_disc, dim_model)
         
-        
         #flatten everything except accross batch for variable selection weights
         vs_weights = self.vs_grn(vectorised_vars.flatten(start_dim = 2)) #(batch_size, seq_len, n_variables)
         vs_weights = torch.softmax(vs_weights, dim = -1).unsqueeze(-1) #(batch_size, seq_len, n_variables, 1)
@@ -91,7 +91,7 @@ class VSN(torch.nn.Module):
         input_weights = self.input_grn(vectorised_vars) #(batch_size, seq_len, n_variables, dim_model)
         
         x = torch.sum((vs_weights * input_weights), dim = 2)
-        return x #returns(batch_size, seq_len, dim_model)
+        return x, vs_weights #returns(batch_size, seq_len, dim_model)
 
     
 class LSTMLayer(torch.nn.Module):
@@ -156,7 +156,7 @@ class TFN(torch.nn.Module):
     #, (batch_size, future_seq_len, n_variables_future)
     def forward(self, x_past_cont, x_past_disc, x_future_cont, x_future_disc):
         #Encoder
-        x_past = self.vs_past(x_past_cont, x_past_disc)
+        x_past, vs_weights = self.vs_past(x_past_cont, x_past_disc)
         
         e, e_hidden = self.enc(x_past)
         self.dec.hidden = e_hidden
@@ -165,13 +165,13 @@ class TFN(torch.nn.Module):
         x_past = self.norm1(self.gate1(e) + x_past)
         
         #Decoder
-        x_future = self.vs_future(x_future_cont, x_future_disc)
+        x_future, _ = self.vs_future(x_future_cont, x_future_disc)
         
         d, _ = self.dec(x_future)
         d = self.dropout(d)
         x_future = self.norm1(self.gate1(d) + x_future)
         
-        #Static enrichment (Without the static for now)
+        #Static enrichment
         x = torch.cat((x_past, x_future), dim = 1) #(batch_size, past_seq_len + future_seq_len, dim_model)
         attention_res = x_future
         x = self.static_enrich_grn(x)
@@ -187,7 +187,7 @@ class TFN(torch.nn.Module):
         x_future = self.norm3(a + x_future + attention_res)
         
         net_out = self.fc_out(x_future)
-        return net_out
+        return net_out, vs_weights
     
     def reset(self, batch_size, gpu = True):
         self.enc.reset(batch_size, gpu)

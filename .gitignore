@@ -5,5 +5,4 @@ __pycache__/
 data_1h/
 data_1m/
 data_5m/
-model.bruh
-model_8k.bruh
+*.pt

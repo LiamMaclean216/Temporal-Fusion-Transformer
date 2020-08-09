@@ -77,3 +77,19 @@ class Query(torch.nn.Module):
 def QuantileLoss(net_out, Y, q):
     return (q * F.relu(net_out - Y)) + ((1 - q) * F.relu(Y - net_out))
 
+from data import one_hot
+def forward_pass(model, data_gen, batch_size, quantiles, gpu = True):
+    model.reset(batch_size, gpu = gpu)
+    
+    #Get input and target data, one-hot encode discrete variables, continuous variables have already been normalized
+    in_seq_continuous, in_seq_discrete, future_in_seq_discrete, target_seq  = next(data_gen)
+    in_seq_discrete = one_hot(in_seq_discrete, [24, 31, 12])
+    future_in_seq_discrete = one_hot(future_in_seq_discrete, [24, 31, 12])
+    
+    #forward pass
+    net_out, vs_weights = model(in_seq_continuous, in_seq_discrete, None,  future_in_seq_discrete)
+    loss = torch.mean(QuantileLoss(net_out, target_seq ,quantiles))
+    
+    
+    return loss, net_out, vs_weights, (in_seq_continuous, in_seq_discrete, future_in_seq_discrete, target_seq)
+
