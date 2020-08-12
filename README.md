@@ -194,9 +194,6 @@ for e in range(steps):
 ```
 
 
-    <IPython.core.display.Javascript object>
-
-
 
 ![](https://github.com/LiamMaclean216/Temporal-Fusion-Transformer/blob/master/doc/training.png)
 The first two graphs simply represent training and test losses respectively
@@ -248,6 +245,6 @@ fig.canvas.draw()
 
 
 resources :
-    - Temporal Fusion Transformer : https://arxiv.org/abs/1912.09363
-    - Binance bitcoin dataset : https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md
+ - Temporal Fusion Transformer : https://arxiv.org/abs/1912.09363
+ - Binance bitcoin dataset : https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md
     
