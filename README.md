@@ -195,11 +195,11 @@ for e in range(steps):
 
 
 
-![](https://github.com/LiamMaclean216/Temporal-Fusion-Transformer/blob/master/doc/training.png)
-The first two graphs simply represent training and test losses respectively
-The third graph shows the networks given data in candlestick form, target data in orange, and the networks best guess in blue. The red lines represent 90% and 10% quantiles
+![](https://github.com/LiamMaclean216/Temporal-Fusion-Transformer/blob/master/doc/training.png)  
+The first two graphs simply represent training and test losses respectively  
+The third graph shows given data in candlestick form, target data in orange, and the networks best guess in blue. Red lines represent 90% and 10% quantiles  
 
-The final graph shows variable selection weights, a feature of temporal fusion networks showing how much importance is attributed to each inputFinally lets put the network into evaluation mode and visualise some test set comparisons
+The final graph shows variable selection weights, a feature of temporal fusion networks showing how much importance is attributed to each inputFinally lets put the network into   evaluation mode and visualise some test set comparisons  
 
 ```python
 #Draw test cases
