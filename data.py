@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 from statsmodels.tsa.stattools import adfuller
 import numpy as np
+import time
 
 import random
 
@@ -66,56 +67,47 @@ class Indexer():
 def get_batches(data_, in_seq_len, out_seq_len, con_cols, disc_cols, target_cols, batch_size = 1, gpu = True, normalise = True, indexer = None, norm = None):
     data = data_.copy()
     
-    given_indexer = False
+    given_indexer = True
     if indexer is None:
-        given_indexer = True
+        given_indexer = False
         indexer = Indexer(1, data.shape[0] - (in_seq_len + out_seq_len + 1), batch_size)
         
     if normalise:
         if norm is None:
             norm = data
         data[con_cols] = (data[con_cols] - norm[con_cols].stack().mean()) / norm[con_cols].stack().std()
+    
+    #convert columns indices from dataframe to numpy darray
+    con_cols = [data.columns.get_loc(x) for x in con_cols]
+    disc_cols = [data.columns.get_loc(x) for x in disc_cols]
+    target_cols = [data.columns.get_loc(x) for x in target_cols]
+    
+    if(not gpu):
+        dtype = torch.FloatTensor
+    else:
+        dtype = torch.cuda.FloatTensor
         
-    in_seq_continuous = []
-    in_seq_discrete = []
-    out_seq = []
-    target_seq = []
-    
-    ba = 0
-    
     while True:
-        i = indexer.indices[ba]
-        batch_data = data.iloc[i:i + in_seq_len + out_seq_len].copy()
-            
-        in_seq_continuous.append(batch_data[con_cols].iloc[0:in_seq_len].values)
-        in_seq_discrete.append(batch_data[disc_cols].iloc[0:in_seq_len].values)
-
-        out_seq.append(batch_data[disc_cols].iloc[in_seq_len:in_seq_len + out_seq_len].values)
-        target_seq.append(batch_data[target_cols].iloc[in_seq_len:in_seq_len + out_seq_len].values)
+        #get batches
+        n = np.array([pd.np.r_[i:(i + in_seq_len + out_seq_len)] for i in indexer.indices])
+        batch_data = data.iloc[n.flatten()].values
+        batch_data = torch.tensor(batch_data.reshape(batch_size ,in_seq_len + out_seq_len, data.shape[-1]))
         
-        ba += 1
-        if(ba >= indexer.batch_size):
-            #[(batch_size, in_seq_len, 4), (batch_size, in_seq_len, 3), (batch_size, out_seq_len, 3), (batch_size, out_seq_len, 1)]
-            if(not gpu):
-                dtype = torch.FloatTensor
-            else:
-                dtype = torch.cuda.FloatTensor
-                
-            yield (torch.tensor(in_seq_continuous).type(dtype).unsqueeze(-1),
-                   torch.tensor(in_seq_discrete).type(dtype),
-                   torch.tensor(out_seq).type(dtype),
-                   torch.tensor(target_seq).type(dtype))
-            
-            in_seq_continuous = []
-            in_seq_discrete = []
-            out_seq = []
-            target_seq = []
-            ba = 0
-            
-            if(given_indexer):
-                indexer.next()
-            
-            
+        #split up batch data
+        in_seq_continuous = batch_data[:,0:in_seq_len, con_cols]
+        in_seq_discrete = batch_data[:,0:in_seq_len, disc_cols]
+
+        out_seq= batch_data[:,in_seq_len:in_seq_len + out_seq_len, disc_cols]
+        target_seq = batch_data[:,in_seq_len:in_seq_len + out_seq_len, target_cols]
+    
+        yield (torch.tensor(in_seq_continuous).type(dtype).unsqueeze(-1),
+                        torch.tensor(in_seq_discrete).type(dtype),
+                        torch.tensor(out_seq).type(dtype),
+                        torch.tensor(target_seq).type(dtype))
+        
+        if(not given_indexer):
+            indexer.next()
+    
 def one_hot(x, dims, gpu = True):
     out = []
     batch_size = x.shape[0]
