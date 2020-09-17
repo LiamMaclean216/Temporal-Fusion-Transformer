@@ -1,4 +1,4 @@
-This is an implementation of the Temporal Fusion Transformer network architecure to predict the future bitcoin market price
+This is an implementation of the Temporal Fusion Transformer network architecure to predict the future bitcoin market price  
 Running the gen_csv_year(year, symbol, interval) in DownloadData.ipynb will download past price data using the binance api
 
 The training set consists of 2018 and 2019, 2020 is used for testing
